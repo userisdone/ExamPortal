@@ -16,7 +16,8 @@ const {
     getExamResults,
     publishResult,
     getPendingEvaluations,
-    evaluateAnswer
+    evaluateAnswer,
+    updateExamSchedule
 } = require("../controllers/teacherController");
 
 // All teacher routes require authentication
@@ -28,6 +29,7 @@ router.put("/results/:resultId/publish", publishResult);
 // Create Exam
 router.post("/exams", createExam);
 
+router.put("/schedules/:scheduleId", updateExamSchedule);
 router.get("/exams", getExams);
 
 router.get("/dashboard-stats", getDashboardStats);

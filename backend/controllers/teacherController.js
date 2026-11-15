@@ -662,6 +662,85 @@ exports.getExams = async (req, res) => {
     }
 };
 
+// UPDATE EXAM SCHEDULE
+exports.updateExamSchedule = async (req, res) => {
+    try {
+        const teacherId = await getTeacherId(req.user.user_id);
+        const scheduleId = Number(req.params.scheduleId);
+
+        if (!teacherId) {
+            return res.status(404).json({
+                success: false,
+                message: "Teacher profile not found"
+            });
+        }
+
+        if (!Number.isInteger(scheduleId) || scheduleId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid schedule ID"
+            });
+        }
+
+        const { exam_date, start_time, end_time } = req.body;
+
+        if (!exam_date || !start_time || !end_time) {
+            return res.status(400).json({
+                success: false,
+                message: "Exam date, start time and end time are required"
+            });
+        }
+
+        if (start_time >= end_time) {
+            return res.status(400).json({
+                success: false,
+                message: "End time must be later than start time"
+            });
+        }
+
+        // Verify that this schedule belongs to an exam assigned to this teacher
+        const [existing] = await db.query(
+            `SELECT es.schedule_id
+             FROM Exam_Schedule es
+             JOIN Exam e ON es.exam_id = e.exam_id
+             JOIN Subject s ON e.subject_id = s.subject_id
+             WHERE es.schedule_id = ?
+             AND s.teacher_id = ?`,
+            [scheduleId, teacherId]
+        );
+
+        if (existing.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Exam schedule not found"
+            });
+        }
+
+        // Update schedule
+        await db.query(
+            `UPDATE Exam_Schedule
+             SET exam_date = ?,
+                 start_time = ?,
+                 end_time = ?
+             WHERE schedule_id = ?`,
+            [exam_date, start_time, end_time, scheduleId]
+        );
+
+        return res.json({
+            success: true,
+            message: "Exam schedule updated successfully"
+        });
+
+    } catch (error) {
+        console.error("Update exam schedule error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Could not update exam schedule"
+        });
+    }
+};
+
 // GET REAL RESULTS FOR AN EXAM
 exports.getExamResults = async (req, res) => {
   try {

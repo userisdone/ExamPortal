@@ -3,17 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import { Check, ChevronRight, ChevronLeft, Zap, List, Shuffle, AlertTriangle, CheckCircle, Loader } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { teacherService } from '../../services/teacherService';
-import { teachers, semesters } from '../../data/mockData';
 
 const STEPS = ['Basic Info', 'Questions', 'Schedule', 'Review'];
 
 export default function CreateExamPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const teacher = teachers.find((t) => t.user_id === user?.user_id);
+  const teacherId = user?.teacher_id;
   const [step, setStep] = useState(0);
   const [assignedSubjects, setAssignedSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [semesters, setSemesters] = useState([]);
+const [error, setError] = useState('');
 
   // Step 1: Basic Info
   const [form, setForm] = useState({ exam_name: '', exam_code: '', subject_id: '', semester_id: '', exam_type: 'MID SEMESTER' });
@@ -32,14 +33,46 @@ export default function CreateExamPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    if (teacher) teacherService.getAssignedSubjects(teacher.teacher_id).then((s) => { setAssignedSubjects(s); setLoading(false); });
-  }, [teacher?.teacher_id]);
+  const loadData = async () => {
+    if (!teacherId) {
+      setError('Teacher ID not found. Please log in again.');
+      setLoading(false);
+      return;
+    }
 
-  const loadQuestionsForSubject = async (subjectId) => {
-    if (!subjectId) return;
-    const qs = await teacherService.getQuestionsBySubject(Number(subjectId));
-    setAllSubjectQuestions(qs);
+    try {
+      setLoading(true);
+      const subjects = await teacherService.getAssignedSubjects(teacherId);
+
+      setAssignedSubjects(subjects || []);
+
+      // Extract actual semester information returned with subjects
+      const uniqueSemesters = [
+        ...new Map(
+          (subjects || [])
+            .filter(s => s.semester_id != null)
+            .map(s => [
+              s.semester_id,
+              {
+                semester_id: s.semester_id,
+                semester_number: s.semester_number,
+                term_type: s.term_type
+              }
+            ])
+        ).values()
+      ];
+
+      setSemesters(uniqueSemesters);
+    } catch (err) {
+      console.error('Error loading exam creation data:', err);
+      setError('Unable to load assigned subjects and semesters.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  loadData();
+}, [teacherId]);
 
   const handleGenerate = async () => {
     setGenerating(true);
